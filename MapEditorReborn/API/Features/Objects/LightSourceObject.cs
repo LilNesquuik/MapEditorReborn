@@ -5,6 +5,8 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using PluginAPI.Core;
+
 namespace MapEditorReborn.API.Features.Objects
 {
     using AdminToys;
@@ -19,13 +21,10 @@ namespace MapEditorReborn.API.Features.Objects
     /// </summary>
     public class LightSourceObject : MapEditorObject
     {
-        private Transform _transform;
         private LightSourceToy _lightSourceToy;
-        private Light _exiledLight;
 
         private void Awake()
         {
-            _transform = transform;
             _lightSourceToy = GetComponent<LightSourceToy>();
         }
 
@@ -38,16 +37,14 @@ namespace MapEditorReborn.API.Features.Objects
         public LightSourceObject Init(LightSourceSerializable lightSourceSerializable, bool spawn = true)
         {
             Base = lightSourceSerializable;
-            Light.MovementSmoothing = 60;
 
             ForcedRoomType = lightSourceSerializable.RoomType != RoomType.Unknown ? lightSourceSerializable.RoomType : FindRoom().Type;
+            
             UpdateObject();
 
             if (spawn)
                 NetworkServer.Spawn(gameObject);
-
-            // IsStatic = false;
-
+            
             return this;
         }
 
@@ -55,13 +52,9 @@ namespace MapEditorReborn.API.Features.Objects
         {
             base.Init(block);
 
-            Base = new(block);
-            Light.MovementSmoothing = 60;
-			Light.AdminToyBase.syncInterval = 0.1f;
+            Base = new LightSourceSerializable(block);
 
             UpdateObject();
-            // IsStatic = true;
-            // _lightSourceToy.enabled = false;
 
             return this;
         }
@@ -70,20 +63,6 @@ namespace MapEditorReborn.API.Features.Objects
         /// The base <see cref="LightSourceSerializable"/>.
         /// </summary>
         public LightSourceSerializable Base;
-
-        /// <summary>
-        /// Gets EXILED Light object
-        /// </summary>
-        public Light Light
-        {
-            get
-            {
-                if (_exiledLight is null)
-                    _exiledLight = Light.Get(_lightSourceToy);
-
-                return _exiledLight;
-            }
-        }
 
         /*
         public bool IsStatic
@@ -99,7 +78,7 @@ namespace MapEditorReborn.API.Features.Objects
         */
 
         /// <inheritdoc cref="MapEditorObject.IsRotatable"/>
-        public override bool IsRotatable => false;
+        public override bool IsRotatable => true;
 
         /// <inheritdoc cref="MapEditorObject.IsScalable"/>
         public override bool IsScalable => false;
@@ -107,36 +86,28 @@ namespace MapEditorReborn.API.Features.Objects
         /// <inheritdoc cref="MapEditorObject.UpdateObject()"/>
         public override void UpdateObject()
         {
-            if (!IsSchematicBlock)
-            {
-                Light.Position = _transform.position;
-                Light.Color = GetColorFromString(Base.Color);
-                Light.Intensity = Base.Intensity;
-                Light.Range = Base.Range;
-                Light.Base.NetworkShadowType = Base.Shadows ? LightShadows.Soft : LightShadows.None;
-            }
-            else
-            {
-                Light.Base._light.color = GetColorFromString(Base.Color);
-                Light.Base._light.intensity = Base.Intensity;
-                Light.Base._light.range = Base.Range;
-                Light.Base._light.shadows = Base.Shadows ? LightShadows.Soft : LightShadows.None;
-            }
+            //Log.Info("Updating object");
+            
+            _lightSourceToy.Position = Base.Position;
+            _lightSourceToy.Rotation = Quaternion.Euler(Base.Rotation);
+            
+            _lightSourceToy.NetworkLightType = Base.Type;
+            _lightSourceToy.NetworkLightColor = GetColorFromString(Base.Color);
+            _lightSourceToy.NetworkLightIntensity = Base.Intensity;
+            _lightSourceToy.NetworkLightRange = Base.Range;
+            _lightSourceToy.NetworkLightShape = Base.Shape;
+            _lightSourceToy.NetworkSpotAngle = Base.SpotAngle;
+            _lightSourceToy.NetworkInnerSpotAngle = Base.InnerSpotAngle;
+            _lightSourceToy.NetworkShadowType = Base.ShadowType;
+            _lightSourceToy.NetworkIsStatic = Base.Static;
 
             UpdateTransformProperties();
         }
 
-        private void LateUpdate()
-        {
-			_lightSourceToy.NetworkLightColor = _lightSourceToy._light.color;
-            _lightSourceToy.NetworkLightIntensity = _lightSourceToy._light.intensity;
-            _lightSourceToy.NetworkLightRange = _lightSourceToy._light.range;
-            _lightSourceToy.NetworkShadowType = Base.Shadows ? LightShadows.Soft : LightShadows.None;
-        }
-
         private void UpdateTransformProperties()
         {
-            _lightSourceToy.NetworkPosition = _transform.position;
+            _lightSourceToy.NetworkPosition = transform.position;
+            _lightSourceToy.NetworkRotation = transform.rotation;
         }
 
         private bool _isStatic;
